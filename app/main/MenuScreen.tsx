@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card, Button, FAB, TextInput, Portal, Dialog } from 'react-native-paper';
-import { useFocusEffect } from '@react-navigation/native';
+// import { useFocusEffect } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../contexts/AuthContext';
@@ -54,11 +54,15 @@ export default function MenuScreen() {
     setRefreshing(false);
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [])
-  );
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     loadData();
+  //   }, [])
+  // );
+  
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const resetForm = () => {
     setDishName('');

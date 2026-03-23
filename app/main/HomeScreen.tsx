@@ -9,14 +9,16 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card, Button } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
 import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { familyApi, orderApi, dishApi } from '../../services/api';
 import type { FamilyMember, SelectedDish, Dish } from '../../types';
 
-export default function HomeScreen() {
-  const navigation = useNavigation();
+interface HomeScreenProps {
+  onNavigate: (screen: string) => void;
+}
+
+export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   const { user, family } = useAuth();
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [selectedDishes, setSelectedDishes] = useState<SelectedDish[]>([]);
@@ -103,14 +105,14 @@ export default function HomeScreen() {
             title="去点餐"
             subtitle="选择今天想吃的菜"
             color={Colors.primary}
-            onPress={() => navigation.navigate('OrderTab' as never)}
+            onPress={() => onNavigate('order')}
           />
           <QuickActionButton
             icon="format-list-checks"
             title="查看已选"
             subtitle="看看全家想吃什么"
             color={Colors.secondary}
-            onPress={() => navigation.navigate('OrderTab' as never)}
+            onPress={() => onNavigate('order')}
           />
         </View>
       </View>
@@ -130,13 +132,13 @@ export default function HomeScreen() {
               icon="plus-circle"
               title="添加菜谱"
               subtitle="新增家庭菜品"
-              onPress={() => navigation.navigate('MenuTab' as never)}
+              onPress={() => onNavigate('menu')}
             />
             <AdminActionButton
               icon="pencil"
               title="编辑菜谱"
               subtitle="修改菜品信息"
-              onPress={() => navigation.navigate('MenuTab' as never)}
+              onPress={() => onNavigate('menu')}
             />
             <AdminActionButton
               icon="cog"

@@ -1,15 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Colors } from './constants/Colors';
-import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Auth Screens
 import WelcomeScreen from './app/auth/WelcomeScreen';
@@ -22,36 +18,176 @@ import OrderScreen from './app/main/OrderScreen';
 import MenuScreen from './app/main/MenuScreen';
 import ProfileScreen from './app/main/ProfileScreen';
 
-const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
-
 // 自定义主题
 const theme = {
   ...MD3LightTheme,
   colors: {
     ...MD3LightTheme.colors,
     primary: Colors.primary,
-    primaryContainer: Colors.primaryLight,
-    secondary: Colors.secondary,
-    secondaryContainer: Colors.secondaryLight,
     background: Colors.background,
-    surface: Colors.surface,
-    surfaceVariant: Colors.card,
-    error: Colors.error,
-    onPrimary: '#FFFFFF',
-    onSurface: Colors.text,
-    onSurfaceVariant: Colors.textLight,
-    outline: Colors.border,
-    outlineVariant: Colors.divider,
   },
-  roundness: 4,
 };
 
-// 自定义 Tab Bar 样式
-const tabBarOptions = {
-  tabBarActiveTintColor: Colors.primary,
-  tabBarInactiveTintColor: Colors.textLight,
-  tabBarStyle: {
+// 底部导航栏
+function BottomTabBar({ activeTab, onTabChange }: { activeTab: string; onTabChange: (tab: string) => void }) {
+  const tabs = [
+    { key: 'home', label: '首页', icon: 'home' },
+    { key: 'order', label: '点餐', icon: 'food' },
+    { key: 'menu', label: '菜谱', icon: 'book-open' },
+    { key: 'profile', label: '我的', icon: 'account' },
+  ];
+
+  return (
+    <View style={styles.tabBar}>
+      {tabs.map((tab) => (
+        <TouchableOpacity
+          key={tab.key}
+          style={styles.tabItem}
+          onPress={() => onTabChange(tab.key)}
+        >
+          <MaterialCommunityIcons
+            name={activeTab === tab.key ? tab.icon : `${tab.icon}-outline`}
+            size={24}
+            color={activeTab === tab.key ? Colors.primary : Colors.textLight}
+          />
+          <Text
+            style={[
+              styles.tabLabel,
+              activeTab === tab.key && styles.tabLabelActive,
+            ]}
+          >
+            {tab.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+// 主应用内容
+function MainContent() {
+  const [activeTab, setActiveTab] = useState('home');
+  const { user, family, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingText}>加载中...</Text>
+      </View>
+    );
+  }
+
+  // 渲染当前页面
+  const renderScreen = () => {
+    switch (activeTab) {
+      case 'home':
+        return <HomeScreen onNavigate={(screen: string) => setActiveTab(screen)} />;
+      case 'order':
+        return <OrderScreen onNavigate={(screen: string) => setActiveTab(screen)} />;
+      case 'menu':
+        return <MenuScreen onNavigate={(screen: string) => setActiveTab(screen)} />;
+      case 'profile':
+        return <ProfileScreen onNavigate={(screen: string) => setActiveTab(screen)} />;
+      default:
+        return <HomeScreen onNavigate={(screen: string) => setActiveTab(screen)} />;
+    }
+  };
+
+  return (
+    <View style={styles.mainContainer}>
+      <View style={styles.screenWrapper}>{renderScreen()}</View>
+      <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+    </View>
+  );
+}
+
+// 认证流程
+function AuthFlow() {
+  const [authScreen, setAuthScreen] = useState<'welcome' | 'create' | 'join'>('welcome');
+  const { user, family } = useAuth();
+
+  // 如果已登录且有家庭，进入主应用
+  if (user && family) {
+    return <MainContent />;
+  }
+
+  // 如果已登录但没有家庭，显示创建/加入家庭页面
+  if (user && !family) {
+    return (
+      <CreateFamilyScreen
+        onNavigateToJoin={() => setAuthScreen('join')}
+        onNavigateToMain={() => {}}
+      />
+    );
+  }
+
+  // 根据当前认证页面显示
+  switch (authScreen) {
+    case 'welcome':
+      return (
+        <WelcomeScreen
+          onNavigateToCreate={() => setAuthScreen('create')}
+          onNavigateToJoin={() => setAuthScreen('join')}
+        />
+      );
+    case 'create':
+      return (
+        <CreateFamilyScreen
+          onNavigateToJoin={() => setAuthScreen('join')}
+          onNavigateToMain={() => {}}
+        />
+      );
+    case 'join':
+      return (
+        <JoinFamilyScreen
+          onNavigateToCreate={() => setAuthScreen('create')}
+          onNavigateToMain={() => {}}
+        />
+      );
+    default:
+      return <WelcomeScreen onNavigateToCreate={() => setAuthScreen('create')} onNavigateToJoin={() => setAuthScreen('join')} />;
+  }
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <PaperProvider theme={theme}>
+        <AuthProvider>
+          <SafeAreaView style={styles.container} edges={['top']}>
+            <AuthFlow />
+            <StatusBar style="dark" backgroundColor={Colors.background} />
+          </SafeAreaView>
+        </AuthProvider>
+      </PaperProvider>
+    </SafeAreaProvider>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  mainContainer: {
+    flex: 1,
+  },
+  screenWrapper: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: Colors.text,
+  },
+  tabBar: {
+    flexDirection: 'row',
     backgroundColor: Colors.card,
     borderTopWidth: 0,
     elevation: 8,
@@ -65,136 +201,18 @@ const tabBarOptions = {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
-  tabBarLabelStyle: {
-    fontSize: 12,
-    fontWeight: '500' as const,
+  tabItem: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  headerShown: false,
-};
-
-// 主应用底部导航
-function MainTabs() {
-  return (
-    <Tab.Navigator screenOptions={tabBarOptions}>
-      <Tab.Screen
-        name="HomeTab"
-        component={HomeScreen}
-        options={{
-          title: '首页',
-          tabBarIcon: ({ color, size, focused }) => (
-            <MaterialCommunityIcons
-              name={focused ? 'home' : 'home-outline'}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="OrderTab"
-        component={OrderScreen}
-        options={{
-          title: '点餐',
-          tabBarIcon: ({ color, size, focused }) => (
-            <MaterialCommunityIcons
-              name={focused ? 'food' : 'food-outline'}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="MenuTab"
-        component={MenuScreen}
-        options={{
-          title: '菜谱',
-          tabBarIcon: ({ color, size, focused }) => (
-            <MaterialCommunityIcons
-              name={focused ? 'book-open' : 'book-open-outline'}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="ProfileTab"
-        component={ProfileScreen}
-        options={{
-          title: '我的',
-          tabBarIcon: ({ color, size, focused }) => (
-            <MaterialCommunityIcons
-              name={focused ? 'account' : 'account-outline'}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
-    </Tab.Navigator>
-  );
-}
-
-// 加载中组件
-function LoadingScreen() {
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }}>
-      <ActivityIndicator size="large" color={Colors.primary} />
-      <Text style={{ marginTop: 10, color: Colors.text }}>加载中...</Text>
-    </View>
-  );
-}
-
-// 根导航 - 简化版本，避免条件渲染导致的问题
-function RootNavigator() {
-  const { user, family, isLoading } = useAuth();
-
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
-
-  // 确定初始路由
-  let initialRoute = 'Welcome';
-  if (user && family) {
-    initialRoute = 'Main';
-  } else if (user && !family) {
-    initialRoute = 'CreateFamily';
-  }
-
-  console.log('RootNavigator render:', { user: !!user, family: !!family, initialRoute });
-
-  return (
-    <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName={initialRoute}
-        screenOptions={{
-          headerShown: false,
-          animation: 'slide_from_right',
-        }}
-      >
-        <Stack.Screen name="Welcome" component={WelcomeScreen} />
-        <Stack.Screen name="CreateFamily" component={CreateFamilyScreen} />
-        <Stack.Screen name="JoinFamily" component={JoinFamilyScreen} />
-        <Stack.Screen name="Main" component={MainTabs} />
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
-}
-
-export default function App() {
-  return (
-    <SafeAreaProvider>
-      <PaperProvider theme={theme}>
-        <AuthProvider>
-          <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }} edges={['top']}>
-            <ErrorBoundary>
-              <RootNavigator />
-            </ErrorBoundary>
-            <StatusBar style="dark" backgroundColor={Colors.background} />
-          </SafeAreaView>
-        </AuthProvider>
-      </PaperProvider>
-    </SafeAreaProvider>
-  );
-}
+  tabLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Colors.textLight,
+    marginTop: 4,
+  },
+  tabLabelActive: {
+    color: Colors.primary,
+  },
+});

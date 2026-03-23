@@ -7,14 +7,16 @@ import {
   Alert,
 } from 'react-native';
 import { Button, TextInput, Card } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors } from '../../constants/Colors';
 import { authApi } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
-export default function JoinFamilyScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+interface JoinFamilyScreenProps {
+  onNavigateToCreate: () => void;
+  onNavigateToMain: () => void;
+}
+
+export default function JoinFamilyScreen({ onNavigateToCreate, onNavigateToMain }: JoinFamilyScreenProps) {
   const { setUser, setFamily } = useAuth();
 
   const [inviteCode, setInviteCode] = useState('');
@@ -45,7 +47,7 @@ export default function JoinFamilyScreen() {
       console.log('JoinFamily: State updated, navigating to Main');
       
       // 使用replace替换当前栈，避免返回
-      navigation.replace('Main');
+      onNavigateToMain();
     } catch (error: any) {
       Alert.alert('错误', error.message || '加入家庭失败，请检查邀请码是否正确');
     } finally {
@@ -117,7 +119,7 @@ export default function JoinFamilyScreen() {
 
         <Button
           mode="text"
-          onPress={() => navigation.navigate('CreateFamily')}
+          onPress={onNavigateToCreate}
           style={styles.switchButton}
           labelStyle={styles.switchButtonLabel}
         >

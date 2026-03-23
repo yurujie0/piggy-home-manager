@@ -10,15 +10,18 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card, Button, FAB } from 'react-native-paper';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+// import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { dishApi, orderApi } from '../../services/api';
 import type { Dish, SelectedDish, DishCategory } from '../../types';
 import { CategoryLabels, CategoryColors } from '../../types';
 
-export default function OrderScreen() {
-  const navigation = useNavigation();
+interface OrderScreenProps {
+  onNavigate?: (screen: string) => void;
+}
+
+export default function OrderScreen({ onNavigate }: OrderScreenProps) {
   const { user } = useAuth();
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [selectedDishes, setSelectedDishes] = useState<SelectedDish[]>([]);
@@ -47,11 +50,16 @@ export default function OrderScreen() {
     setRefreshing(false);
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [selectedCategory])
-  );
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     loadData();
+  //   }, [selectedCategory])
+  // );
+  
+  // 使用 useEffect 替代 useFocusEffect
+  useEffect(() => {
+    loadData();
+  }, [selectedCategory]);
 
   const handleSelectDish = async (dish: Dish) => {
     try {

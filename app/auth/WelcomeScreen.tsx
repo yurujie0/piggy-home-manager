@@ -4,15 +4,16 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Image,
 } from 'react-native';
 import { Button } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors } from '../../constants/Colors';
 
-export default function WelcomeScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+interface WelcomeScreenProps {
+  onNavigateToCreate: () => void;
+  onNavigateToJoin: () => void;
+}
+
+export default function WelcomeScreen({ onNavigateToCreate, onNavigateToJoin }: WelcomeScreenProps) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -49,7 +50,7 @@ export default function WelcomeScreen() {
         <View style={styles.buttonsContainer}>
           <Button
             mode="contained"
-            onPress={() => navigation.navigate('CreateFamily')}
+            onPress={onNavigateToCreate}
             style={styles.primaryButton}
             labelStyle={styles.buttonLabel}
           >
@@ -57,7 +58,7 @@ export default function WelcomeScreen() {
           </Button>
           <Button
             mode="outlined"
-            onPress={() => navigation.navigate('JoinFamily')}
+            onPress={onNavigateToJoin}
             style={styles.secondaryButton}
             labelStyle={styles.outlineButtonLabel}
           >
