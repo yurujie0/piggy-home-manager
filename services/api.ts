@@ -274,14 +274,14 @@ export const dishApi = {
 
 export const orderApi = {
   // 获取已选菜品（今日）
-  getSelectedDishes: async (): Promise<SelectedDish[]> => {
-    const data = await apiRequest<{ selectedDishes: SelectedDish[] }>('/api/orders/today');
+  getSelectedDishes: async (familyId: string): Promise<SelectedDish[]> => {
+    const data = await apiRequest<{ selectedDishes: SelectedDish[] }>(`/api/orders/today?family_id=${familyId}`);
     return data.selectedDishes;
   },
 
   // 选择菜品
-  selectDish: async (data: SelectDishRequest): Promise<SelectedDish> => {
-    const result = await apiRequest<{ selectedDish: SelectedDish }>('/api/orders/select', {
+  selectDish: async (data: SelectDishRequest, familyId: string): Promise<SelectedDish> => {
+    const result = await apiRequest<{ selectedDish: SelectedDish }>(`/api/orders/select?family_id=${familyId}`, {
       method: 'POST',
       body: JSON.stringify({
         dish_id: data.dishId,

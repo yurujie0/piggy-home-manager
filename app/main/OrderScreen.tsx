@@ -33,9 +33,15 @@ export default function OrderScreen({ onNavigate }: OrderScreenProps) {
 
   const loadData = async () => {
     try {
+      if (!user?.familyId) {
+        console.log('User not in family, skipping load');
+        setDishes([]);
+        setSelectedDishes([]);
+        return;
+      }
       const [dishesData, selectedData] = await Promise.all([
         dishApi.getDishes(selectedCategory === 'all' ? undefined : selectedCategory),
-        orderApi.getSelectedDishes(),
+        orderApi.getSelectedDishes(user.familyId),
       ]);
       setDishes(dishesData);
       setSelectedDishes(selectedData);
@@ -63,11 +69,15 @@ export default function OrderScreen({ onNavigate }: OrderScreenProps) {
 
   const handleSelectDish = async (dish: Dish) => {
     try {
+      if (!user?.familyId) {
+        Alert.alert('错误', '您还未加入家庭');
+        return;
+      }
       setLoading(true);
       await orderApi.selectDish({
         dishId: dish.id,
         quantity: 1,
-      });
+      }, user.familyId);
       await loadData();
     } catch (error: any) {
       Alert.alert('错误', error.message || '选择菜品失败');
