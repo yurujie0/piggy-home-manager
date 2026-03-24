@@ -9,6 +9,8 @@ import { Colors } from './constants/Colors';
 
 // Auth Screens
 import WelcomeScreen from './app/auth/WelcomeScreen';
+import LoginScreen from './app/auth/LoginScreen';
+import RegisterScreen from './app/auth/RegisterScreen';
 import CreateFamilyScreen from './app/auth/CreateFamilyScreen';
 import JoinFamilyScreen from './app/auth/JoinFamilyScreen';
 
@@ -104,8 +106,8 @@ function MainContent() {
 
 // 认证流程
 function AuthFlow() {
-  const [authScreen, setAuthScreen] = useState<'welcome' | 'create' | 'join'>('welcome');
-  const { user, family } = useAuth();
+  const [authScreen, setAuthScreen] = useState<'login' | 'register' | 'welcome' | 'create' | 'join'>('login');
+  const { user, family, setUser, setFamily } = useAuth();
 
   // 如果已登录且有家庭，进入主应用
   if (user && family) {
@@ -124,6 +126,26 @@ function AuthFlow() {
 
   // 根据当前认证页面显示
   switch (authScreen) {
+    case 'login':
+      return (
+        <LoginScreen
+          onNavigateToRegister={() => setAuthScreen('register')}
+          onLoginSuccess={(userData, token) => {
+            setUser(userData);
+            setAuthScreen('welcome');
+          }}
+        />
+      );
+    case 'register':
+      return (
+        <RegisterScreen
+          onNavigateToLogin={() => setAuthScreen('login')}
+          onRegisterSuccess={(userData, token) => {
+            setUser(userData);
+            setAuthScreen('welcome');
+          }}
+        />
+      );
     case 'welcome':
       return (
         <WelcomeScreen

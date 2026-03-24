@@ -146,11 +146,7 @@ export default function OrderScreen({ onNavigate }: OrderScreenProps) {
                     {CategoryLabels[item.category]}
                   </Text>
                 </View>
-                {item.tags.map((tag, index) => (
-                  <View key={index} style={styles.tag}>
-                    <Text style={styles.tagText}>{tag}</Text>
-                  </View>
-                ))}
+
               </View>
             </View>
           </View>

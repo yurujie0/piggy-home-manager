@@ -4,7 +4,7 @@
 基于FastAPI，端口18001
 """
 
-from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File
+from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -15,6 +15,28 @@ import string
 import os
 import shutil
 from datetime import datetime
+
+# 认证依赖
+async def get_current_user(authorization: Optional[str] = Header(None)):
+    """从请求头中获取当前用户"""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="未提供认证信息")
+    # 简单处理：token 格式为 "token_{user_id}"
+    if authorization.startswith("Bearer "):
+        token = authorization[7:]
+    else:
+        token = authorization
+    
+    # 从 token 中提取 user_id
+    if token.startswith("token_"):
+        user_id = token[6:]
+    else:
+        user_id = token
+    
+    user = users_db.get(user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="用户不存在")
+    return user
 
 # 上传文件存储目录
 UPLOAD_DIR = "/tmp/uploads"
@@ -229,8 +251,13 @@ async def get_dishes(family_id: Optional[str] = None, category: Optional[str] = 
     return {"dishes": dishes}
 
 @app.post("/api/dishes")
-async def create_dish(data: CreateDishRequest, family_id: str, user_id: str):
+async def create_dish(data: CreateDishRequest, user: dict = Depends(get_current_user)):
     """创建菜谱（管理员）"""
+    # 从用户信息中获取 family_id
+    family_id = user.get("family_id")
+    if not family_id:
+        raise HTTPException(status_code=400, detail="用户未加入家庭")
+    
     dish_id = generate_id()
     timestamp = datetime.now().isoformat()
     
@@ -242,7 +269,7 @@ async def create_dish(data: CreateDishRequest, family_id: str, user_id: str):
         "category": data.category,
         "image": data.image,
         "is_available": True,
-        "created_by": user_id,
+        "created_by": user["id"],
         "created_at": timestamp,
         "updated_at": timestamp
     }
@@ -329,6 +356,7 @@ async def unselect_dish(selected_id: str):
 # ==================== 图片上传API ====================
 
 @app.post("/api/upload/image")
+@app.put("/api/upload/image")
 async def upload_image(file: UploadFile = File(...)):
     """上传图片"""
     # 生成唯一文件名

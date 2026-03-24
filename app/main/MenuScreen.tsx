@@ -9,12 +9,15 @@ import {
   Alert,
   Modal,
   ScrollView,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card, Button, FAB, TextInput } from 'react-native-paper';
+import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../contexts/AuthContext';
-import { dishApi } from '../../services/api';
+import { dishApi, uploadApi } from '../../services/api';
 import type { Dish, DishCategory, CreateDishRequest } from '../../types';
 import { CategoryLabels, CategoryColors } from '../../types';
 
@@ -29,6 +32,8 @@ export default function MenuScreen() {
   const [dishName, setDishName] = useState('');
   const [dishDescription, setDishDescription] = useState('');
   const [dishCategory, setDishCategory] = useState<DishCategory>('hot');
+  const [dishImage, setDishImage] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const loadData = async () => {
     try {
@@ -56,6 +61,7 @@ export default function MenuScreen() {
     setDishName('');
     setDishDescription('');
     setDishCategory('hot');
+    setDishImage(null);
   };
 
   const openModal = () => {
@@ -66,6 +72,46 @@ export default function MenuScreen() {
   const closeModal = () => {
     setModalVisible(false);
     resetForm();
+  };
+
+  const handlePickImage = async () => {
+    try {
+      // 请求权限
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('提示', '需要访问相册权限才能选择图片');
+        return;
+      }
+
+      // 打开图片选择器
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedImage = result.assets[0];
+        setUploadingImage(true);
+        
+        try {
+          // 上传图片到服务器
+          const imageUrl = await uploadApi.uploadImage(selectedImage.uri);
+          setDishImage(imageUrl);
+        } catch (error: any) {
+          Alert.alert('上传失败', error.message || '图片上传失败，请重试');
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+    } catch (error: any) {
+      Alert.alert('错误', '选择图片时出错: ' + error.message);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setDishImage(null);
   };
 
   const handleSaveDish = async () => {
@@ -80,6 +126,7 @@ export default function MenuScreen() {
         name: dishName.trim(),
         description: dishDescription.trim() || undefined,
         category: dishCategory,
+        image: dishImage || undefined,
       };
 
       await dishApi.createDish(dishData);
@@ -130,6 +177,9 @@ export default function MenuScreen() {
             <MaterialCommunityIcons name="delete" size={20} color={Colors.error} />
           </TouchableOpacity>
         </View>
+        {item.image && (
+          <Image source={{ uri: item.image }} style={styles.dishImage} resizeMode="cover" />
+        )}
         {item.description && (
           <Text style={styles.dishDescription}>{item.description}</Text>
         )}
@@ -178,6 +228,37 @@ export default function MenuScreen() {
           <ScrollView contentContainerStyle={styles.modalScrollContent}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>添加菜品</Text>
+              
+              {/* 图片上传区域 */}
+              <Text style={styles.categoryLabel}>菜品图片</Text>
+              <View style={styles.imageUploadContainer}>
+                {dishImage ? (
+                  <View style={styles.imagePreviewContainer}>
+                    <Image source={{ uri: dishImage }} style={styles.imagePreview} resizeMode="cover" />
+                    <TouchableOpacity 
+                      style={styles.removeImageButton} 
+                      onPress={handleRemoveImage}
+                    >
+                      <MaterialCommunityIcons name="close-circle" size={24} color={Colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity 
+                    style={styles.uploadButton} 
+                    onPress={handlePickImage}
+                    disabled={uploadingImage}
+                  >
+                    {uploadingImage ? (
+                      <ActivityIndicator color={Colors.primary} />
+                    ) : (
+                      <>
+                        <MaterialCommunityIcons name="camera-plus" size={32} color={Colors.primary} />
+                        <Text style={styles.uploadButtonText}>点击上传图片</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
               
               <TextInput
                 label="菜品名称 *"
@@ -302,6 +383,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textLight,
     marginTop: 8,
+  },
+  dishImage: {
+    width: '100%',
+    height: 150,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  imageUploadContainer: {
+    marginBottom: 12,
+  },
+  uploadButton: {
+    height: 120,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+  },
+  uploadButtonText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: Colors.textLight,
+  },
+  imagePreviewContainer: {
+    position: 'relative',
+    alignSelf: 'flex-start',
+  },
+  imagePreview: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: Colors.card,
+    borderRadius: 12,
   },
   deleteButton: {
     padding: 8,

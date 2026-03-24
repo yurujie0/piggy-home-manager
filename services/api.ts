@@ -17,8 +17,11 @@ import type {
   VersionInfo,
 } from '../types';
 
-// API 基础 URL - 使用18001端口
-const API_BASE_URL = 'http://8.135.17.245:18001';
+// 文件服务器 URL
+const FILE_SERVER_URL = 'http://8.135.17.245:18000';
+
+// API 基础 URL - 使用18002端口
+const API_BASE_URL = 'http://8.135.17.245:18002';
 
 // 获取 token
 async function getToken(): Promise<string | null> {
@@ -65,6 +68,35 @@ async function apiRequest<T>(
 // ==================== 认证相关 API ====================
 
 export const authApi = {
+  // 用户注册
+  register: async (data: { username: string; password: string; nickname: string }): Promise<{ user: User; accessToken: string }> => {
+    const result = await apiRequest<{ user: User; accessToken: string }>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        username: data.username,
+        password: data.password,
+        nickname: data.nickname,
+      }),
+    });
+    await AsyncStorage.setItem('access_token', result.accessToken);
+    await AsyncStorage.setItem('user', JSON.stringify(result.user));
+    return result;
+  },
+
+  // 用户登录
+  login: async (data: { username: string; password: string }): Promise<{ user: User; accessToken: string }> => {
+    const result = await apiRequest<{ user: User; accessToken: string }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({
+        username: data.username,
+        password: data.password,
+      }),
+    });
+    await AsyncStorage.setItem('access_token', result.accessToken);
+    await AsyncStorage.setItem('user', JSON.stringify(result.user));
+    return result;
+  },
+
   // 创建家庭（注册管理员）
   createFamily: async (data: CreateFamilyRequest): Promise<{ user: User; family: Family; token: string }> => {
     const result = await apiRequest<{
@@ -215,7 +247,6 @@ export const dishApi = {
         name: data.name,
         description: data.description,
         category: data.category,
-        tags: data.tags || [],
         image: data.image,
       }),
     });
@@ -284,5 +315,57 @@ export const versionApi = {
   checkUpdate: async (): Promise<VersionInfo> => {
     const data = await apiRequest<VersionInfo>('/api/version/latest');
     return data;
+  },
+};
+
+// ==================== 文件上传 API ====================
+
+export const uploadApi = {
+  // 上传图片到后端 API (端口 18001)
+  uploadImage: async (imageUri: string): Promise<string> => {
+    try {
+      // 获取文件名
+      const filename = imageUri.split('/').pop() || 'image.jpg';
+      
+      // 获取 token
+      const token = await getToken();
+      
+      // 创建 FormData
+      const formData = new FormData();
+      
+      // React Native 平台 - 使用文件 URI
+      formData.append('file', {
+        uri: imageUri,
+        name: filename,
+        type: 'image/jpeg',
+      } as any);
+
+      // 上传到后端 API (端口 18001)
+      const uploadResponse = await fetch(`${API_BASE_URL}/api/upload/image`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          // 注意：不要设置 Content-Type，让浏览器自动设置 multipart boundary
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json().catch(() => ({}));
+        throw new Error(errorData.detail || `上传失败: ${uploadResponse.status}`);
+      }
+
+      const result = await uploadResponse.json();
+      
+      if (result.success && result.url) {
+        // 返回完整的图片 URL (后端返回的是相对路径如 /api/images/xxx.jpg)
+        return `${API_BASE_URL}${result.url}`;
+      } else {
+        throw new Error(result.message || '上传失败');
+      }
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      throw new Error(error.message || '图片上传失败');
+    }
   },
 };
