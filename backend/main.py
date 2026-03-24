@@ -213,6 +213,73 @@ async def login(data: LoginRequest):
 
 
 
+
+class SelectDishRequest(BaseModel):
+    dish_id: str
+    quantity: int = 1
+    note: Optional[str] = None
+
+@app.get('/api/orders/today')
+async def get_today_orders(family_id: str):
+    '''获取今日已选菜品'''
+    with get_db() as conn:
+        rows = conn.execute(
+            'SELECT * FROM selected_dishes WHERE family_id = ? ORDER BY selected_at DESC',
+            (family_id,)
+        ).fetchall()
+    return {'selectedDishes': [dict(row) for row in rows]}
+
+@app.post('/api/orders/select')
+async def select_dish(data: SelectDishRequest, family_id: str, user=Depends(get_current_user)):
+    '''选择菜品'''
+    with get_db() as conn:
+        # 获取菜品信息
+        dish = conn.execute('SELECT * FROM dishes WHERE id = ?', (data.dish_id,)).fetchone()
+        if not dish:
+            raise HTTPException(status_code=404, detail='菜品不存在')
+        
+        selected_id = generate_id()
+        timestamp = get_timestamp()
+        
+        conn.execute('''
+            INSERT INTO selected_dishes 
+            (id, dish_id, dish_name, family_id, selected_by, selected_by_name, quantity, note, selected_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (selected_id, data.dish_id, dish['name'], family_id, user['id'], user['nickname'], 
+              data.quantity, data.note, timestamp))
+        conn.commit()
+        
+        row = conn.execute('SELECT * FROM selected_dishes WHERE id = ?', (selected_id,)).fetchone()
+    return {'selected_dish': dict(row)}
+
+@app.put('/api/orders/selected/{selected_id}')
+async def update_selected_quantity(selected_id: str, quantity: int):
+    '''更新已选菜品数量'''
+    with get_db() as conn:
+        row = conn.execute('SELECT * FROM selected_dishes WHERE id = ?', (selected_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail='记录不存在')
+        
+        conn.execute('UPDATE selected_dishes SET quantity = ? WHERE id = ?', (quantity, selected_id))
+        conn.commit()
+        
+        row = conn.execute('SELECT * FROM selected_dishes WHERE id = ?', (selected_id,)).fetchone()
+    return {'selected_dish': dict(row)}
+
+@app.delete('/api/orders/selected/{selected_id}')
+async def delete_selected(selected_id: str):
+    '''取消选择菜品'''
+    with get_db() as conn:
+        row = conn.execute('SELECT * FROM selected_dishes WHERE id = ?', (selected_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail='记录不存在')
+        
+        conn.execute('DELETE FROM selected_dishes WHERE id = ?', (selected_id,))
+        conn.commit()
+    return {'success': True}
+
+
 if __name__ == '__main__':
     import uvicorn
     uvicorn.run(app, host='0.0.0.0', port=18002)
+# ==================== 点餐API ====================
