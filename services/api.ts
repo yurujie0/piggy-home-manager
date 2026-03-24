@@ -16,6 +16,7 @@ import type {
   ApiResponse,
   VersionInfo,
 } from '../types';
+import { keysToCamelCase, transformUser, transformFamily, transformDishes, transformSelectedDishes } from '../utils/dataTransform';
 
 // 文件服务器 URL
 const FILE_SERVER_URL = 'http://8.135.17.245:18000';
@@ -70,7 +71,7 @@ async function apiRequest<T>(
 export const authApi = {
   // 用户注册
   register: async (data: { username: string; password: string; nickname: string }): Promise<{ user: User; accessToken: string }> => {
-    const result = await apiRequest<{ user: User; accessToken: string }>('/api/auth/register', {
+    const result = await apiRequest<any>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({
         username: data.username,
@@ -78,65 +79,63 @@ export const authApi = {
         nickname: data.nickname,
       }),
     });
+    const user = transformUser(result.user);
     await AsyncStorage.setItem('access_token', result.accessToken);
-    await AsyncStorage.setItem('user', JSON.stringify(result.user));
-    return result;
+    await AsyncStorage.setItem('user', JSON.stringify(user));
+    return { user, accessToken: result.accessToken };
   },
 
   // 用户登录
   login: async (data: { username: string; password: string }): Promise<{ user: User; accessToken: string }> => {
-    const result = await apiRequest<{ user: User; accessToken: string }>('/api/auth/login', {
+    const result = await apiRequest<any>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({
         username: data.username,
         password: data.password,
       }),
     });
+    const user = transformUser(result.user);
     await AsyncStorage.setItem('access_token', result.accessToken);
-    await AsyncStorage.setItem('user', JSON.stringify(result.user));
-    return result;
+    await AsyncStorage.setItem('user', JSON.stringify(user));
+    return { user, accessToken: result.accessToken };
   },
 
   // 创建家庭（注册管理员）
   createFamily: async (data: CreateFamilyRequest): Promise<{ user: User; family: Family; token: string }> => {
-    const result = await apiRequest<{
-      user: User;
-      family: Family;
-      accessToken: string;
-    }>('/api/families/create', {
+    const result = await apiRequest<any>('/api/families/create', {
       method: 'POST',
       body: JSON.stringify({
         family_name: data.familyName,
         admin_nickname: data.adminNickname,
       }),
     });
+    const user = transformUser(result.user);
+    const family = transformFamily(result.family);
 
     await AsyncStorage.setItem('access_token', result.accessToken);
-    await AsyncStorage.setItem('user', JSON.stringify(result.user));
-    await AsyncStorage.setItem('family', JSON.stringify(result.family));
+    await AsyncStorage.setItem('user', JSON.stringify(user));
+    await AsyncStorage.setItem('family', JSON.stringify(family));
 
-    return { user: result.user, family: result.family, token: result.accessToken };
+    return { user, family, token: result.accessToken };
   },
 
   // 加入家庭
   joinFamily: async (data: JoinFamilyRequest): Promise<{ user: User; family: Family; token: string }> => {
-    const result = await apiRequest<{
-      user: User;
-      family: Family;
-      accessToken: string;
-    }>('/api/families/join', {
+    const result = await apiRequest<any>('/api/families/join', {
       method: 'POST',
       body: JSON.stringify({
         invite_code: data.inviteCode,
         nickname: data.nickname,
       }),
     });
+    const user = transformUser(result.user);
+    const family = transformFamily(result.family);
 
     await AsyncStorage.setItem('access_token', result.accessToken);
-    await AsyncStorage.setItem('user', JSON.stringify(result.user));
-    await AsyncStorage.setItem('family', JSON.stringify(result.family));
+    await AsyncStorage.setItem('user', JSON.stringify(user));
+    await AsyncStorage.setItem('family', JSON.stringify(family));
 
-    return { user: result.user, family: result.family, token: result.accessToken };
+    return { user, family, token: result.accessToken };
   },
 
   // 登出
@@ -176,8 +175,8 @@ export const authApi = {
 export const familyApi = {
   // 获取家庭成员列表
   getMembers: async (): Promise<FamilyMember[]> => {
-    const data = await apiRequest<{ members: FamilyMember[] }>('/api/families/members');
-    return data.members;
+    const data = await apiRequest<{ members: any[] }>('/api/families/members');
+    return data.members.map((m: any) => ({...m, user: transformUser(m.user)}));
   },
 
   // 更新成员角色
@@ -225,15 +224,15 @@ export const dishApi = {
       params.append('category', category);
     }
     const query = params.toString() ? `?${params.toString()}` : '';
-    const data = await apiRequest<{ dishes: Dish[] }>(`/api/dishes${query}`);
-    return data.dishes;
+    const data = await apiRequest<{ dishes: any[] }>(`/api/dishes${query}`);
+    return transformDishes(data.dishes);
   },
 
   // 获取单个菜谱
   getDish: async (id: string): Promise<Dish | null> => {
     try {
-      const data = await apiRequest<{ dish: Dish }>(`/api/dishes/${id}`);
-      return data.dish;
+      const data = await apiRequest<{ dish: any }>(`/api/dishes/${id}`);
+      return transformDish(data.dish);
     } catch {
       return null;
     }
@@ -241,7 +240,7 @@ export const dishApi = {
 
   // 创建菜谱（管理员）
   createDish: async (data: CreateDishRequest): Promise<Dish> => {
-    const result = await apiRequest<{ dish: Dish }>('/api/dishes', {
+    const result = await apiRequest<{ dish: any }>('/api/dishes', {
       method: 'POST',
       body: JSON.stringify({
         name: data.name,
@@ -275,13 +274,13 @@ export const dishApi = {
 export const orderApi = {
   // 获取已选菜品（今日）
   getSelectedDishes: async (familyId: string): Promise<SelectedDish[]> => {
-    const data = await apiRequest<{ selectedDishes: SelectedDish[] }>(`/api/orders/today?family_id=${familyId}`);
-    return data.selectedDishes;
+    const data = await apiRequest<{ selectedDishes: any[] }>(`/api/orders/today?family_id=${familyId}`);
+    return transformSelectedDishes(data.selectedDishes);
   },
 
   // 选择菜品
   selectDish: async (data: SelectDishRequest, familyId: string): Promise<SelectedDish> => {
-    const result = await apiRequest<{ selectedDish: SelectedDish }>(`/api/orders/select?family_id=${familyId}`, {
+    const result = await apiRequest<{ selectedDish: any }>(`/api/orders/select?family_id=${familyId}`, {
       method: 'POST',
       body: JSON.stringify({
         dish_id: data.dishId,
@@ -289,15 +288,16 @@ export const orderApi = {
         note: data.note,
       }),
     });
-    return result.selectedDish;
+    return transformSelectedDish(result.selectedDish);
   },
 
   // 更新已选菜品数量
   updateSelectedQuantity: async (selectedDishId: string, quantity: number): Promise<SelectedDish> => {
-    const result = await apiRequest<{ selectedDish: SelectedDish }>(`/api/orders/selected/${selectedDishId}`, {
+    const result = await apiRequest<{ selectedDish: any }>(`/api/orders/selected/${selectedDishId}`, {
       method: 'PUT',
       body: JSON.stringify({ quantity }),
     });
+    return transformSelectedDish(result.selectedDish);
     return result.selectedDish;
   },
 
