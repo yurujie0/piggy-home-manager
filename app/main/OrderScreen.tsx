@@ -31,9 +31,12 @@ export default function OrderScreen({ onNavigate }: OrderScreenProps) {
 
   const categories: (DishCategory | 'all')[] = ['all', 'hot', 'cold', 'soup', 'staple', 'dessert', 'drink'];
 
+  // 获取 family_id（后端返回的是 snake_case）
+  const familyId = (user as any)?.family_id || user?.familyId;
+
   const loadData = async () => {
     try {
-      if (!user?.familyId) {
+      if (!familyId) {
         console.log('User not in family, skipping load');
         setDishes([]);
         setSelectedDishes([]);
@@ -41,7 +44,7 @@ export default function OrderScreen({ onNavigate }: OrderScreenProps) {
       }
       const [dishesData, selectedData] = await Promise.all([
         dishApi.getDishes(selectedCategory === 'all' ? undefined : selectedCategory),
-        orderApi.getSelectedDishes(user.familyId),
+        orderApi.getSelectedDishes(familyId),
       ]);
       setDishes(dishesData);
       setSelectedDishes(selectedData);
@@ -69,7 +72,7 @@ export default function OrderScreen({ onNavigate }: OrderScreenProps) {
 
   const handleSelectDish = async (dish: Dish) => {
     try {
-      if (!user?.familyId) {
+      if (!familyId) {
         Alert.alert('错误', '您还未加入家庭');
         return;
       }
@@ -77,7 +80,7 @@ export default function OrderScreen({ onNavigate }: OrderScreenProps) {
       await orderApi.selectDish({
         dishId: dish.id,
         quantity: 1,
-      }, user.familyId);
+      }, familyId);
       await loadData();
     } catch (error: any) {
       Alert.alert('错误', error.message || '选择菜品失败');
